@@ -184,6 +184,7 @@ main()
                         else
                         {
                             index_maxval = -1;
+                            detected_counter = 0;
                         }
 
                         con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
@@ -197,7 +198,7 @@ main()
                                 else
                                     detected_counter = 0;
                                 color = cv::Scalar(255, 0, 255);
-                                if (detected_counter > 2)
+                                if (detected_counter >= 3)
                                     printf("{type:\"match\",value:\"%f,%f\"}\n", contour_center[i].x, contour_center[i].y);
                                 else
                                     printf("{type:\"potential_match\",value:\"%f,%f\"}\n", contour_center[i].x, contour_center[i].y);
