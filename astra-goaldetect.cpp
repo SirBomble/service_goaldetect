@@ -175,8 +175,8 @@ main()
                         if (contours.size() > 0)
                         {
                             index_maxval = std::distance(potential_matches.begin(), result);
-                            printf("Max value for this round at index %d: %f\n", index_maxval,
-                                potential_matches.at(std::distance(potential_matches.begin(), result)));
+                            // printf("Max value for this round at index %d: %f\n", index_maxval,
+                            //     potential_matches.at(std::distance(potential_matches.begin(), result)));
                         }
                         else
                         {
@@ -186,17 +186,17 @@ main()
                         con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
                         for(int i = 0; i < contours.size(); i++)
                         {
-                            if (i == index_maxval && potential_matches.at(i) < 2)
+                            if (i == index_maxval && potential_matches.at(i) < 0.7)
                             {
                                 color = cv::Scalar(255, 0, 255);
-                                cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
+                                printf("{type:\"potential_match\",value:\"%f,%f\"}\n", contour_center[i].x, contour_center[i].y);
+                                cv::circle(con_drawing, contour_center[i], (int)contour_radius[i], color, 2, 8, 0);
                             }
                             else
                             {
-                                color = cv::Scalar(rand() % 255, rand() % 255, rand() % 255);
+                                color = cv::Scalar(255, 255, 0);
                             }
-                            // cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
-                            // cv::circle(con_drawing, contour_center[i], (int)contour_radius[i], color, 2, 8, 0);
+                            cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
                         }
 
                         cv::imshow("Depth", depthmat);
