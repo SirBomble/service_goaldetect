@@ -72,6 +72,7 @@ main()
         cvNamedWindow("Detected");
         int canny_thresh = 70;
         int erosion_dia_size = 4;
+        int detection_thresh = 3.5;
         // Remove them noizy contourz
         int contour_min_thresh = 20;
         int contour_max_thresh = 100;
@@ -188,7 +189,7 @@ main()
                         con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
                         for(int i = 0; i < contours.size(); i++)
                         {
-                            if (i == index_maxval && potential_matches.at(i) < 1.5)
+                            if (i == index_maxval && potential_matches.at(i) < detection_thresh)
                             {
                                 if (previous_center.size() != 0 && fabs(contour_center[i].x - previous_center[i].x < 10.0) &&
                                     fabs(contour_center[i].y - previous_center[i].y < 10.0))
