@@ -41,7 +41,11 @@ main()
         cv::Mat depthmat;
         IplImage* depthcv = cvCreateImageHeader(cvSize(640, 480), IPL_DEPTH_16U, 1);
         cvNamedWindow("Depth");
-        int canny_thresh = 100;
+        cvNamedWindow("Detected");
+        int canny_thresh = 25;
+        int erosion_size = 12;
+        cv::Mat con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
+        cv::Scalar color;
         std::vector<std::vector<cv::Point> > contours;
         std::vector<cv::Vec4i> hierarchy;
 
@@ -52,19 +56,35 @@ main()
             switch (changedIndex)
             {
                 case 0:
+                {
                     depth.readFrame(&depthFrame);
 
                     if (depthFrame.isValid())
                     {
                         depthcv->imageData = (char*) depthFrame.getData();
                         depthmat = cv::Mat(depthcv);
-                        cv::blur(depthmat, depthmat, cv::Size(3, 3));
-                        //cv::Canny(depthmat, depthmat, canny_thresh, canny_thresh*2, 3);
-                        //cv::findContours(depthmat, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+                        depthmat.convertTo(depthmat, CV_8U, 0.00390625, -20);
                         cv::flip(depthmat, depthmat, 1);
+                        cv::Mat element = getStructuringElement(0,
+                            cv::Size(2*erosion_size + 1, 2*erosion_size+1),
+                            cv::Point(erosion_size, erosion_size));
+                        cv::erode(depthmat, depthmat, element);
+                        cv::blur(depthmat, depthmat, cv::Size(4, 4));
+                        cv::Canny(depthmat, depthmat, canny_thresh, canny_thresh*2, 3);
+                        cv::findContours(depthmat, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+
+                        con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
+                        for(int i = 0; i < contours.size(); i++)
+                        {
+                            color = cv::Scalar(255, 255, 0);
+                            cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
+                        }
+
                         cv::imshow("Depth", depthmat);
+                        cv::imshow("Detected", con_drawing);
                     }
                     break;
+                }
 
                 default:
                     puts("Error retrieving stream");
@@ -74,6 +94,7 @@ main()
         }
         cvReleaseImageHeader(&depthcv);
         cvDestroyWindow("Depth");
+        cvDestroyWindow("Detected");
     }
     depth.stop();
     depth.destroy();
