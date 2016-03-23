@@ -1,5 +1,4 @@
 #include <OpenNI.h>
-//#include <pthread.h>
 #include <signal.h>
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
@@ -57,9 +56,6 @@ main()
     depth.setVideoMode(paramvideo);
     device.setDepthColorSyncEnabled(false);
 
-    // device.setDepthColorSyncEnabled(true);
-    // device.setImageRegistrationMode(openni::IMAGE_REGISTRATION_DEPTH_TO_COLOR);
-
     json_log("Initialization complete!");
 
     VideoStream** stream = new VideoStream*[1];
@@ -104,7 +100,6 @@ main()
         }
         cv::imshow("Template", template_con_drawing);
 
-static int w = 0;
         int changedIndex;
         while(device.isValid())
         {
@@ -188,16 +183,12 @@ static int w = 0;
                             index_maxval = -1;
                         }
 
-++w;
-if (w >= contours.size())
-    w = 0;
                         con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
                         for(int i = 0; i < contours.size(); i++)
                         {
                             if (i == index_maxval && potential_matches.at(i) < 2)
                             {
                                 color = cv::Scalar(255, 0, 255);
-printf("w = %d, val = %f and size = %d\n", w, potential_matches.at(i), contours.at(i).size());
                                 cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
                             }
                             else
