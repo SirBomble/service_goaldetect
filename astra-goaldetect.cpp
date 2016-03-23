@@ -36,6 +36,7 @@ main()
     signal(SIGALRM, do_ping);
     alarm(5);
 
+    srand(time(NULL));
     OpenNI::initialize();
     json_log("Initializing orbbec");
     Device device;
@@ -73,10 +74,14 @@ main()
         cvNamedWindow("Depth");
         cvNamedWindow("Template");
         cvNamedWindow("Detected");
-        int canny_thresh = 150;
+        int canny_thresh = 70;
         int erosion_dia_size = 4;
+        // Remove them noizy contourz
+        int contour_min_thresh = 20;
+        int contour_max_thresh = 100;
         cv::Mat con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
         cv::Mat template_con_drawing;
+        cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(16, 16));
         cv::Scalar color;
         std::vector<std::vector<cv::Point> > contours;
         std::vector<cv::Vec4i> hierarchy;
@@ -88,20 +93,22 @@ main()
 
         // Create a contour of the template image
         template_mat = cv::imread("GoalContourTemplate.png", CV_LOAD_IMAGE_GRAYSCALE);
-        cv::Canny(template_mat, template_mat, canny_thresh, canny_thresh*2, 3);
+        cv::Canny(template_mat, template_mat, canny_thresh, canny_thresh*2, 5, true);
         cv::findContours(template_mat, template_contours, template_hierarchy,
             CV_RETR_TREE, CV_CHAIN_APPROX_TC89_L1, cv::Point(0, 0));
         template_con_drawing = cv::Mat::zeros(template_mat.size(), CV_8UC3);
         for(int i = 0; i < template_contours.size(); i++)
         {
-            color = cv::Scalar(255, 255, 0);
+            color = cv::Scalar(rand() % 255, rand() % 255, rand() % 255);
             cv::drawContours(template_con_drawing, template_contours, i, color, 2, 8, template_hierarchy, 0, cv::Point());
         }
         cv::imshow("Template", template_con_drawing);
 
+static int w = 0;
         int changedIndex;
         while(device.isValid())
         {
+            // usleep(100000);
             if (print_ping)
             {
                 keepalive_message();
@@ -118,6 +125,9 @@ main()
 
                     if (depthFrame.isValid())
                     {
+                        // Load test obstacles (testacles, test mode)
+                        // depthmat = cv::imread("Testacles.png", CV_LOAD_IMAGE_GRAYSCALE);
+
                         depthcv->imageData = (char*) depthFrame.getData();
                         depthmat = cv::Mat(depthcv);
                         depthmat.convertTo(depthmat, CV_8U, 0.00390625, -20);
@@ -127,11 +137,23 @@ main()
                             cv::Point(erosion_dia_size, erosion_dia_size));
                         cv::erode(depthmat, depthmat, element);
                         cv::dilate(depthmat, depthmat, element);
-                        cv::blur(depthmat, depthmat, cv::Size(4, 4));
+                        // cv::blur(depthmat, depthmat, cv::Size(4, 4));
                         cv::Canny(depthmat, depthmat, canny_thresh, canny_thresh*2, 3);
+
+                        cv::morphologyEx(depthmat, depthmat, cv::MORPH_CLOSE, structuringElement);
+
                         cv::findContours(depthmat, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_TC89_L1, cv::Point(0, 0));
                         // smootour.update(depthmat);
                         // contours = smootour.get_contours();
+
+                        // Contour cleanup
+                        for (std::vector<std::vector<cv::Point> >::iterator it = contours.begin(); it != contours.end();)
+                        {
+                            if (it->size() <= contour_min_thresh || it->size() >= contour_max_thresh)
+                                it = contours.erase(it);
+                            else
+                                ++it;
+                        }
 
                         std::vector<cv::Point2f> contour_center(contours.size());
                         std::vector<float> contour_radius(contours.size());
@@ -146,15 +168,43 @@ main()
                         potential_matches.clear();
                         for (int i = 0; i < contours.size(); i++)
                         {
-                            potential_matches.push_back(cv::matchShapes(contours.at(i), template_contours.at(0), CV_CONTOURS_MATCH_I1, 0.0));
-                            printf("Got with acc = %f\n", potential_matches.at(i));
+                            double res = cv::matchShapes(contours.at(i), template_contours.at(0), CV_CONTOURS_MATCH_I2, 0.0);
+                            if (res == 0.0) // Garbage
+                                res = INT_MAX; // Replace with more garbage
+                            potential_matches.push_back(res);
+                            // printf("Got with acc = %f\n", potential_matches.back());
+                        }
+                        std::vector<double>::iterator result;
+                        result = std::min_element(potential_matches.begin(), potential_matches.end());
+                        int index_maxval;
+                        if (contours.size() > 0)
+                        {
+                            index_maxval = std::distance(potential_matches.begin(), result);
+                            printf("Max value for this round at index %d: %f\n", index_maxval,
+                                potential_matches.at(std::distance(potential_matches.begin(), result)));
+                        }
+                        else
+                        {
+                            index_maxval = -1;
                         }
 
+++w;
+if (w >= contours.size())
+    w = 0;
                         con_drawing = cv::Mat::zeros(depthmat.size(), CV_8UC3);
                         for(int i = 0; i < contours.size(); i++)
                         {
-                            color = cv::Scalar(255, 255, 0);
-                            cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
+                            if (i == index_maxval && potential_matches.at(i) < 2)
+                            {
+                                color = cv::Scalar(255, 0, 255);
+printf("w = %d, val = %f and size = %d\n", w, potential_matches.at(i), contours.at(i).size());
+                                cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
+                            }
+                            else
+                            {
+                                color = cv::Scalar(rand() % 255, rand() % 255, rand() % 255);
+                            }
+                            // cv::drawContours(con_drawing, contours, i, color, 2, 8, hierarchy, 0, cv::Point());
                             // cv::circle(con_drawing, contour_center[i], (int)contour_radius[i], color, 2, 8, 0);
                         }
 
