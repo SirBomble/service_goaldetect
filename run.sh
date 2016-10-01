@@ -7,3 +7,4 @@ echo "Running commands as $PID1 and $PID2"
 read -p "Press any key to stop running..." -n1 -s
 killall nc
 killall ./astra-goaldetect
+kill -9 int
